@@ -60,6 +60,22 @@ docker run --rm -it --env-file .env -v $(pwd):/app -e RUN_MODE=hupper chatgpt_bo
 docker run --rm -it --env-file .env -v ${PWD}:/app -e RUN_MODE=hupper chatgpt_bot
 ```
 
+
+## Uso en Telegram
+
+**Uso común**
+
+- `<texto>`: Genera texto a partir de lo que se solicite.
+- `<audio>`: Acepta notas de voz y genera texto a partir de ellas.
+
+**Comandos disponibles:**
+
+- `/imagina <texto>`: Genera imágenes a partir de texto.
+- `/i <texto>`: Traduce el texto a inglés y luego genera imágenes.
+- `/help`: Muestra la ayuda.
+- `/start`: Mensaje de bienvenida.
+
+
 ---
 
 Sigue las instrucciones anteriores para configurar y ejecutar el bot de Telegram con ChatGPT. Puedes ejecutarlo con o sin hupper, según tus preferencias y necesidades.

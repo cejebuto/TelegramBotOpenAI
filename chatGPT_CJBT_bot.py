@@ -168,8 +168,8 @@ def generate_image(update: Update, context: CallbackContext, translated_prompt=N
         # Genera la imagen con DALL·E
         response = openai.Image.create(
             prompt=prompt,
-            n=1,
-            size="1024x1024"  # Puedes cambiar el tamaño según tus necesidades (1256x256, 512x512, 1024x1024)
+            n=2,
+            size="512x512"  # Puedes cambiar el tamaño según tus necesidades (256x256, 512x512, 1024x1024)
         )
     except Exception as e:
         print(f"Error al generar la imagen: {e}")
@@ -181,10 +181,12 @@ def generate_image(update: Update, context: CallbackContext, translated_prompt=N
     # Elimina el mensaje "Imaginando..." una vez que se haya recibido la respuesta
     context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
 
-    image_url = response['data'][0]['url']
+    # Itera sobre las imágenes generadas en la respuesta
+    for image_data in response['data']:
+        image_url = image_data['url']
 
-    # Envía la imagen generada al chat de Telegram
-    update.message.reply_photo(photo=image_url)
+        # Envía la imagen generada al chat de Telegram
+        update.message.reply_photo(photo=image_url)
 
 def help (update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
