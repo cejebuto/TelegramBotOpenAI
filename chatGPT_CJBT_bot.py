@@ -68,6 +68,11 @@ def load_allowed_user_ids(filename='allowed_user_ids.json'):
 
 def translate(text, source_language, target_language):
     api_key = GOOGLE_API_KEY
+
+    if api_key == '':
+        print(f"Falta la API key de Google.")
+        return None
+
     url = "https://translation.googleapis.com/language/translate/v2"
     params = {
         "q": text,
