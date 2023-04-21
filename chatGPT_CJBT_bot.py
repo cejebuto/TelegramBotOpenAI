@@ -1,4 +1,5 @@
 import os
+import requests
 from dotenv import load_dotenv
 import logging
 from collections import deque
@@ -20,6 +21,7 @@ load_dotenv()
 
 TELEGRAM_API_TOKEN = os.getenv('TELEGRAM_API_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 GPT_API_URL = 'https://api.openai.com/v1/chat/completions'
 GPT_HEADERS = {
@@ -38,30 +40,96 @@ message_history = {}
 def error_handler(update: Update, context: CallbackContext) -> None:
     logging.error(f'Error en la actualización {update} causado por {context.error}')
 
+def translate(text, source_language, target_language):
+    api_key = GOOGLE_API_KEY
+    url = "https://translation.googleapis.com/language/translate/v2"
+    params = {
+        "q": text,
+        "source": source_language,
+        "target": target_language,
+        "key": api_key,
+    }
+    response = requests.post(url, params=params)
+    try:
+        if response.status_code == 200:
+            result = response.json()
+            translated_text = result["data"]["translations"][0]["translatedText"]
+            return translated_text
+        else:
+            raise Exception(f"Error en la solicitud: {response.status_code}")
+    except Exception as e:
+        print(f"Error al traducir el texto: {e}")
+        return None
 
-def generate_image(update: Update, context: CallbackContext):
+def traduce_generate_image(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+
+    api_key = GOOGLE_API_KEY
+    if api_key is None:
+        update.message.reply_text("Lo siento, no tengo una API key de Google. ulitiliza /imagina")
+        return
+
+    if user_id in ALLOWED_USER_IDS:
+        prompt_es = ' '.join(context.args)
+
+        if not prompt_es:
+            update.message.reply_text(
+                "Por favor, ingresa un texto después del comando /i, como '/i un gato blanco siamés'.")
+            return
+
+        # Envía el mensaje "Traduciendo..." y guarda el objeto del mensaje en una variable
+        translating_message = update.message.reply_text("Traduciendo...")
+
+        # Traduce el texto del español al inglés usando la función 'translate'
+        prompt_en = translate(prompt_es, "es", "en")
+        if prompt_en is None:
+            context.bot.delete_message(chat_id=update.message.chat_id, message_id=translating_message.message_id)
+            update.message.reply_text("Lo siento, hubo un error al traducir el texto.")
+            return
+
+        # Elimina el mensaje "Traduciendo..." una vez que se haya traducido el texto
+        context.bot.delete_message(chat_id=update.message.chat_id, message_id=translating_message.message_id)
+
+        # Llama a generate_image con el texto traducido
+        generate_image(update, context, translated_prompt=prompt_en)
+
+    else:
+        # Si el ID de usuario no está en la lista de ID permitidos, envía un mensaje de error
+        update.message.reply_text("Lo siento, este bot es privado y solo está disponible para usuarios autorizados.")
+
+def generate_image(update: Update, context: CallbackContext, translated_prompt=None):
     user_id = update.message.from_user.id
 
     if user_id in ALLOWED_USER_IDS:
-        prompt = ' '.join(context.args)
+        if translated_prompt is None:
+            prompt = ' '.join(context.args)
 
-        if not prompt:
-            update.message.reply_text(
-                "Por favor, ingresa un texto después del comando /imagina, como '/imagina un gato blanco siamés'.")
-            return
+            if not prompt:
+                update.message.reply_text(
+                    "Por favor, ingresa un texto después del comando /imagina, como '/imagina un gato blanco siamés'.")
+                return
+        else:
+            prompt = translated_prompt
 
-        # Envía el mensaje "Copiando..." y guarda el objeto del mensaje en una variable
+        # Envía el mensaje "Imaginando..." y guarda el objeto del mensaje en una variable
         copying_message = update.message.reply_text("Imaginando...")
 
         # Configura tus credenciales de OpenAI
         openai.api_key = OPENAI_API_KEY
 
-        # Genera la imagen con DALL·E
-        response = openai.Image.create(
-            prompt=prompt,
-            n=2,
-            size="512x512"  # Puedes cambiar el tamaño según tus necesidades
-        )
+        try:
+            # Genera la imagen con DALL·E
+            response = openai.Image.create(
+                prompt=prompt,
+                n=1,
+                size="1024x1024"  # Puedes cambiar el tamaño según tus necesidades (1256x256, 512x512, 1024x1024)
+            )
+        except Exception as e:
+            print(f"Error al generar la imagen: {e}")
+            context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
+            update.message.reply_text(
+                "Lo siento, no puedo generar una imagen con ese contenido debido a que Open AI no me deja hacerlo 😒 ")
+            return
 
         # Elimina el mensaje "Imaginando..." una vez que se haya recibido la respuesta
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
@@ -74,6 +142,7 @@ def generate_image(update: Update, context: CallbackContext):
     else:
         # Si el ID de usuario no está en la lista de ID permitidos, envía un mensaje de error
         update.message.reply_text("Lo siento, este bot es privado y solo está disponible para usuarios autorizados.")
+
 
 def transcribe_voice_note(voice_note_file):
     openai.api_key = OPENAI_API_KEY
@@ -88,8 +157,12 @@ def transcribe_voice_note(voice_note_file):
 
 
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text('¡Hola! Envía un mensaje y usaré ChatGPT para responderte. :)')
-
+    user_id = update.message.from_user.id
+    if user_id in ALLOWED_USER_IDS:
+        update.message.reply_text('¡Hola! Envía un mensaje y usaré ChatGPT para responderte 😁 ')
+    else:
+        update.message.reply_text("Lo siento, este bot es privado y solo está disponible para usuarios autorizados.")
+        update.message.reply_text("Solicita acceso a @cejebuto con tu ID de usuario de Telegram : " + str(user_id))
 
 def chat_gpt_request(user_id, user_message):
     openai.api_key = OPENAI_API_KEY
@@ -105,7 +178,7 @@ def chat_gpt_request(user_id, user_message):
     # Asegura que la instrucción del sistema esté presente en el historial de mensajes
     system_instruction = {
         "role": "system",
-        "content": "Eres un asistente virtual que habla con modismos."
+        "content": "Eres un asistente virtual que habla como Jarvis de iron-man."
     }
 
     messages_with_instruction = [system_instruction] + user_history_list
@@ -181,13 +254,13 @@ def chat_response(update: Update, context: CallbackContext):
         else:
             return
 
-        # Envía el mensaje "Copiando..." y guarda el objeto del mensaje en una variable
-        copying_message = update.message.reply_text("Copiando...")
+        # Envía el mensaje "Respondiendo..." y guarda el objeto del mensaje en una variable
+        copying_message = update.message.reply_text("Respondiendo...")
 
         # Realiza la solicitud a Chat GPT
         response = chat_gpt_request(user_id, input_text)
 
-        # Elimina el mensaje "Copiando..." una vez que se haya recibido la respuesta
+        # Elimina el mensaje "Respondiendo..." una vez que se haya recibido la respuesta
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
 
         # Guarda la respuesta del modelo en el historial de mensajes
@@ -206,7 +279,7 @@ def main():
     dp.add_error_handler(error_handler)
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("imagina", generate_image, pass_args=True))
-    #dp.add_handler(MessageHandler(Filters.text & ~Filters.command, chat_response))
+    dp.add_handler(CommandHandler("i", traduce_generate_image, pass_args=True))
     dp.add_handler(MessageHandler((Filters.text | Filters.voice) & ~Filters.command, chat_response))
 
     updater.start_polling()
