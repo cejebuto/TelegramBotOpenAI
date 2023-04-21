@@ -1,0 +1,7 @@
+requests
+python-telegram-bot==13.7
+openai
+ffmpeg
+pydub
+python-dotenv
+hupper

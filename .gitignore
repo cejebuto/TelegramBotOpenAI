@@ -1,0 +1,11 @@
+# app
+.env
+allowed_user_ids.json
+
+# IntelliJ
+out/
+.idea
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
