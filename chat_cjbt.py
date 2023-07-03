@@ -4,12 +4,14 @@ import logging
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from dotenv import load_dotenv
+import tempfile
 
 #mis propias librerias
 from lib.audio import validate_voice_note, download_and_convert_voice_notes, transcribe_voice_note
-from lib.openai import request_by_text,generate_image_request
+from lib.openai import request_by_text,generate_image_request,create_and_send_image
 from lib.google import traduce_request
 from lib.allowed_user import is_user_allowed
+from lib.image import convert_to_png_and_reduce,print_image_info
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -77,8 +79,10 @@ def help (update: Update, context: CallbackContext):
         update.message.reply_text("Solicita acceso a @cejebuto con tu ID de usuario de Telegram : " + str(user_id))
         return
     update.message.reply_text("Este bot usa ChatGPT para generar respuestas a tus mensajes. Puedes usarlo para chatear con un bot de IA. ")
+    update.message.reply_text("Puedes enviar una nota de voz, el bot lo transcribe y te responde en texto ")
     update.message.reply_text("Puedes usar /imagina para generar imágenes a partir de texto. ")
     update.message.reply_text("Puedes usar /i para traducir el texto a inglés y luego generar imágenes. ")
+    update.message.reply_text("Puedes enviar una imagen o foto y el bot la reimagina ")
 
 #esta es la opcion de bienvenida /start
 def start(update: Update , context: CallbackContext):
@@ -129,9 +133,28 @@ def handle_voice(update: Update, context: CallbackContext):
 
     request_by_text(input_text,message_history, update, context)
 
-#Imagen
+
 def handle_photo(update: Update, context: CallbackContext):
-    update.message.reply_text("Foto")
+
+    # Obtén la imagen del mensaje
+    photo_file = context.bot.get_file(update.message.photo[-1].file_id)
+
+    #trrato de convertirla
+    photo_file_path = convert_to_png_and_reduce(photo_file)
+    if not photo_file_path:
+        return
+
+    #print_image_info (photo_file) #recibe una imagen path
+
+    # Envía el mensaje "Reimaginando..." y guarda el objeto del mensaje en una variable
+    copying_message = update.message.reply_text("Reimaginando...")
+
+    # Llama a la nueva función pasando la ruta al archivo temporal
+    create_and_send_image(context, photo_file_path, update, copying_message)
+
+    # Limpia el archivo temporal después de usarlo
+    os.remove(photo_file_path)
+
 
 #MAIN
 def main():

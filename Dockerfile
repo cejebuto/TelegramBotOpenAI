@@ -22,5 +22,5 @@ EXPOSE 8000
 ARG RUN_MODE
 
 # Inicie el bot de Telegram
-CMD ["/bin/sh", "-c", "if [ \"$RUN_MODE\" = \"hupper\" ]; then hupper -m chatGPT_CJBT_bot; else python3 chatGPT_CJBT_bot.py; fi"]
+CMD ["/bin/sh", "-c", "if [ \"$RUN_MODE\" = \"hupper\" ]; then hupper -m chat_cjbt; else python3 chat_cjbt.py; fi"]
 

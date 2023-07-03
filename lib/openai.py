@@ -9,6 +9,7 @@ from collections import deque
 # Carga las variables de entorno del archivo .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+MODEL_GPT = os.getenv('MODEL_GPT')
 
 
 def request_by_text(input_text,message_history,update, context):
@@ -80,10 +81,37 @@ def generate_image_request(update, context, translated_prompt=None):
         update.message.reply_photo(photo=image_url)
 
 
+def create_and_send_image(context, photo_path, update, copying_message):
+    try:
+        # Genera la variación de la imagen con OpenAI
+        with open(photo_path, "rb") as image_file:
+            response = openai.Image.create_variation(
+                image=image_file,
+                n=1,
+                size="512x512"
+            )
+    except Exception as e:
+        print(f"Error al generar la imagen: {e}")
+        context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
+        update.message.reply_text(
+            "Lo siento, no puedo generar una imagen similar debido a que Open AI no me deja hacerlo 😒")
+        return
+
+    # Itera sobre las imágenes generadas en la respuesta
+    for image_data in response['data']:
+        image_url = image_data['url']
+
+        # Envía la imagen generada al chat de Telegram
+        update.message.reply_photo(photo=image_url)
+
+    context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
+
+
 #No usar directamente esta función
 def chat_gpt_request(user_id, user_message,message_history):
 
     openai.api_key = OPENAI_API_KEY
+    model_gpt = MODEL_GPT
 
     # Recupera el historial de mensajes del usuario o crea uno nuevo si no existe
     user_history = message_history.get(user_id, deque(maxlen=12))
@@ -103,8 +131,7 @@ def chat_gpt_request(user_id, user_message,message_history):
 
     # Realiza la solicitud a la API de ChatCompletion
     response = openai.ChatCompletion.create(
-        model="gpt-4",
-        # messages=user_history_list,
+        model=model_gpt,
         messages=messages_with_instruction,
         temperature=0.7,
         max_tokens=200,

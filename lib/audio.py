@@ -63,6 +63,9 @@ def transcribe_voice_note(voice_note_file_path, context, update, copying_message
             transcript = openai.Audio.transcribe("whisper-1", voice_note_file)
             text = transcript.get("text")
 
+        # Elimina el archivo de voz una vez que ha sido transcrita
+        os.remove(voice_note_file_path)
+
         # Elimina el mensaje "Escuchando..." una vez que se haya recibido la respuesta
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
 
