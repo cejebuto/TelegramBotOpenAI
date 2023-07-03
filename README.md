@@ -16,6 +16,8 @@ También debe tener una clave de API de OpenAI. Puede encontrar instrucciones pa
 ```
 TELEGRAM_API_TOKEN=<your_telegram_api_token>
 OPENAI_API_KEY=<your_openai_api_key>
+MODEL_GPT=<model_gpt> (el modelo que desee usar)
+GOOGLE_API_KEY=<your_google_api_key> (opcional para usar traductor)
 ```
 
 3. Copie `allowed_user_ids.json.example` a `allowed_user_ids.json` y separe por comas los id's de telegram que desee permitir que usen el bot:
@@ -67,6 +69,8 @@ docker run --rm -it --env-file .env -v ${PWD}:/app -e RUN_MODE=hupper chatgpt_bo
 
 - `<texto>`: Genera texto a partir de lo que se solicite.
 - `<audio>`: Acepta notas de voz y genera texto a partir de ellas.
+- `<imagenes>`: Acepta imagenes y el bot crea una similar
+
 
 **Comandos disponibles:**
 
