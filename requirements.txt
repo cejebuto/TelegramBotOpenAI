@@ -5,3 +5,4 @@ ffmpeg
 pydub
 python-dotenv
 hupper
+pillow

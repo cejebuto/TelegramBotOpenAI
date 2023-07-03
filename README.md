@@ -16,6 +16,7 @@ También debe tener una clave de API de OpenAI. Puede encontrar instrucciones pa
 ```
 TELEGRAM_API_TOKEN=<your_telegram_api_token>
 OPENAI_API_KEY=<your_openai_api_key>
+GOOGLE_API_KEY=<your_google_api_key> (opcional para usar traductor)
 ```
 
 3. Copie `allowed_user_ids.json.example` a `allowed_user_ids.json` y separe por comas los id's de telegram que desee permitir que usen el bot:

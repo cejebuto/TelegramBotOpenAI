@@ -10,6 +10,9 @@ import tempfile
 from pydub import AudioSegment
 import json
 
+#mis propias librerias
+from lib.audio import procesar_nota_de_voz, B
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -226,14 +229,14 @@ def chat_gpt_request(user_id, user_message):
     # Asegura que la instrucción del sistema esté presente en el historial de mensajes
     system_instruction = {
         "role": "system",
-        "content": "Eres un asistente virtual que habla como Jarvis de iron-man."
+        "content": "Eres un asistente virtual que dice solo información exacta y detalada."
     }
 
     messages_with_instruction = [system_instruction] + user_history_list
 
     # Realiza la solicitud a la API de ChatCompletion
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         # messages=user_history_list,
         messages=messages_with_instruction,
         temperature=0.7,
@@ -246,7 +249,71 @@ def chat_gpt_request(user_id, user_message):
     return model_response
 
 
-def chat_response(update: Update, context: CallbackContext):
+def message_type_middleware(func):
+    def inner(update: Update, context: CallbackContext):
+        message_type = None
+        if update.message.voice:
+            message_type = 'voice'
+        elif update.message.photo:
+            message_type = 'photo'
+        elif update.message.text:
+            message_type = 'text'
+        else:
+            return
+
+        return func(update, context, message_type)
+
+    return inner
+
+
+def handle_text(update: Update, context: CallbackContext):
+    """
+        @function handle_text
+        @param update: Update
+        @param context: CallbackContext
+        @return: Text
+    """
+
+    #Obtenemos el texto del mensaje
+    input_text = update.message.text
+
+    # Envía el mensaje "Respondiendo..." y guarda el objeto del mensaje en una variable
+    copying_message = update.message.reply_text("Respondiendo...")
+
+    # Obtiene el ID de usuario del mensaje
+    user_id = update.message.from_user.id
+
+    # Realiza la solicitud a Chat GPT
+    response = chat_gpt_request(user_id, input_text)
+
+    # Elimina el mensaje "Respondiendo..." una vez que se haya recibido la respuesta
+    context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
+
+    # Guarda la respuesta del modelo en el historial de mensajes
+    message_history[user_id].append({"role": "assistant", "content": response})
+
+    update.message.reply_text(response)
+
+def handle_voice(update: Update, context: CallbackContext):
+    update.message.reply_text("Voz")
+    input_text = update.message.text
+
+def handle_photo(update: Update, context: CallbackContext):
+    update.message.reply_text("Foto")
+
+
+
+@message_type_middleware
+def chat_response(update: Update, context: CallbackContext,message_type):
+
+    switch_cases = {
+        'voice': handle_voice,
+        'photo': handle_photo,
+        'text': handle_text
+    }
+    switch_cases.get(message_type, lambda u, c: None)(update, context)
+
+    return
 
     if not is_user_allowed(update):
         update.message.reply_text("Lo siento, este bot es privado y solo está disponible para usuarios autorizados.")
@@ -264,15 +331,7 @@ def chat_response(update: Update, context: CallbackContext):
         # Obtiene la información del archivo de la nota de voz
         voice_note = update.message.voice
 
-        if (voice_note.mime_type != "audio/ogg"):
-            context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
-            update.message.reply_text("Lo siento, solo puedo procesar notas de voz tomadas directamente desde Telegram ⚠")
-            return
-
-        if (voice_note.duration > 30):
-            context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
-            update.message.reply_text("Lo siento, no puedo procesar notas de voz de más de 30 segundos 😒")
-            return
+        procesar_nota_de_voz(voice_note, context, update, copying_message)
 
         temp_dir = os.path.join(os.getcwd(), "temp")
 
@@ -306,27 +365,19 @@ def chat_response(update: Update, context: CallbackContext):
             update.message.reply_text("Lo siento, no pude transcribir la nota de voz. Inténtalo de nuevo.")
             return
 
+    # Comprueba si el mensaje es una imagen
+    elif update.message.photo:
+        # maneja imagen
+        update.message.reply_text("Imagen recibida")
+
+        pass
     elif update.message.text:
         input_text = update.message.text
     else:
+        update.message.reply_text("Formato No compatible , nada que hacer")
         return
 
-    # Envía el mensaje "Respondiendo..." y guarda el objeto del mensaje en una variable
-    copying_message = update.message.reply_text("Respondiendo...")
 
-    # Obtiene el ID de usuario del mensaje
-    user_id = update.message.from_user.id
-
-    # Realiza la solicitud a Chat GPT
-    response = chat_gpt_request(user_id, input_text)
-
-    # Elimina el mensaje "Respondiendo..." una vez que se haya recibido la respuesta
-    context.bot.delete_message(chat_id=update.message.chat_id, message_id=copying_message.message_id)
-
-    # Guarda la respuesta del modelo en el historial de mensajes
-    message_history[user_id].append({"role": "assistant", "content": response})
-
-    update.message.reply_text(response)
 
 
 def main():
@@ -338,7 +389,7 @@ def main():
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("imagina", generate_image, pass_args=True))
     dp.add_handler(CommandHandler("i", traduce_generate_image, pass_args=True))
-    dp.add_handler(MessageHandler((Filters.text | Filters.voice) & ~Filters.command, chat_response))
+    dp.add_handler(MessageHandler((Filters.text | Filters.voice | Filters.photo) & ~Filters.command, chat_response))
 
     updater.start_polling()
     updater.idle()
