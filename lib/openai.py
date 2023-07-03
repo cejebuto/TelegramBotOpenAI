@@ -11,6 +11,8 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 MODEL_GPT = os.getenv('MODEL_GPT')
 
+#Todo , sacar todas las reply_text para un modulo diferente o por defecto arriba.
+
 
 def request_by_text(input_text,message_history,update, context):
     """
